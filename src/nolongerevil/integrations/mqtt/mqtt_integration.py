@@ -45,6 +45,7 @@ from nolongerevil.integrations.mqtt.helpers import (
     derive_hvac_action,
     get_fan_mode,
     get_preset_mode,
+    ha_mode_to_nest,
     is_device_away,
     is_eco_active,
     is_fan_running,
@@ -59,7 +60,7 @@ from nolongerevil.integrations.mqtt.topic_builder import (
     build_state_topic,
     parse_object_key,
 )
-from nolongerevil.lib.consts import HaPreset
+from nolongerevil.lib.consts import HaMode, HaPreset
 from nolongerevil.lib.logger import get_logger
 from nolongerevil.lib.types import DeviceStateChange, IntegrationConfig
 from nolongerevil.routes.control.command import CommandError, execute_command
@@ -246,12 +247,15 @@ class MqttIntegration(BaseIntegration):
 
         try:
             if command == "mode":
+                # HA sends "heat_cool", which set_mode does not accept. Translate known
+                # HA modes and pass anything else through for set_mode to validate.
+                mode = ha_mode_to_nest(payload) if payload in HaMode.all() else payload
                 await execute_command(
                     self._state_service,
                     self._subscription_manager,
                     serial,
                     "set_mode",
-                    payload,
+                    mode,
                 )
 
             elif command == "target_temperature":
